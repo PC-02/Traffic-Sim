@@ -1,3 +1,9 @@
+# About
+
+This is a traffic simulation code that I have parallelized as part of an assignment for my MSc. `init_code.c` describes the inital simulation code provided to us. The goal of this assignment was to parallelize the code so it can run smaller problem simulations faster and support running larger problem sizes. 
+
+I parallelized this code using [MPI](https://en.wikipedia.org/wiki/Message_Passing_Interface), specifically by creating a generic parallel framework with MPI. This framework is generic & extensible and can be used for other software as well. Code detailing the framework itself can be found in `src/pool.c` and code detailing changes made to the inital simulation to utilize the parallel framework are in `src/code.c`.
+
 # Running the program
 
 ```
