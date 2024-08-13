@@ -129,23 +129,23 @@ void startSim(){
 
 // derived datatype creation
 void createCommandType(){
-	struct Message message;
+  struct Message message;
 
   MPI_Aint msgAddr, parentAddr, taskAddr;
-	MPI_Get_address(&message, &msgAddr);
-	MPI_Get_address(&message.parent, &parentAddr);
-	MPI_Get_address(&message.task_id, &taskAddr);
+  MPI_Get_address(&message, &msgAddr);
+  MPI_Get_address(&message.parent, &parentAddr);
+  MPI_Get_address(&message.task_id, &taskAddr);
 
   int items = 3;
-	int blocklengths[3] = {1,1,1};
+  int blocklengths[3] = {1,1,1};
 
-	MPI_Datatype types[3] = {MPI_CHAR, MPI_INT, MPI_INT};
+  MPI_Datatype types[3] = {MPI_CHAR, MPI_INT, MPI_INT};
 
   // find the exact offset required to get to the data address inside the message structure.
-	MPI_Aint offsets[3] = {0, parentAddr - msgAddr, taskAddr - msgAddr};
+  MPI_Aint offsets[3] = {0, parentAddr - msgAddr, taskAddr - msgAddr};
 
-	MPI_Type_create_struct(items, blocklengths, offsets, types, &MESSAGE);
-	MPI_Type_commit(&MESSAGE);
+  MPI_Type_create_struct(items, blocklengths, offsets, types, &MESSAGE);
+  MPI_Type_commit(&MESSAGE);
   return;
 }
 
@@ -154,9 +154,9 @@ void createCommandType(){
 int masterCode(){
   if(rank == 0){
     MPI_Status status;
-		MPI_Recv(&recv_message, 1, MESSAGE, MPI_ANY_SOURCE, MESSAGE_TAG, MPI_COMM_WORLD, &status);
+    MPI_Recv(&recv_message, 1, MESSAGE, MPI_ANY_SOURCE, MESSAGE_TAG, MPI_COMM_WORLD, &status);
 
-		if(recv_message.type == PP_SLEEPING){
+    if(recv_message.type == PP_SLEEPING){
       
       if(DEBUG_MODE){
         printf(
@@ -167,15 +167,15 @@ int masterCode(){
       proc_tracker[status.MPI_SOURCE-1] = 0;
 
       return 1;
-		}
+    }
 
-		if(recv_message.type == PP_RUNCOMPLETE){
-			
+    if(recv_message.type == PP_RUNCOMPLETE){
+      
       if(DEBUG_MODE){
         printf("[Master] Received shutdown command\n"); 
       } 
-			return 0;
-		}
+      return 0;
+    }
 
     if(recv_message.type == PP_CHECKSTOP){
       int sleep = checkAllSleep();
@@ -183,20 +183,20 @@ int masterCode(){
       return 1;
     }
 
-		if(recv_message.type == PP_STARTPROCESS){
-			proc_request_count++;
-		
+    if(recv_message.type == PP_STARTPROCESS){
+      proc_request_count++;
+    
       int return_rank = -1;
 
       while(return_rank == -1){
         return_rank = startAwaitingProcessesIfNeeded(recv_message.parent, recv_message.task_id);
       } 
 
-			// If the master was to start a worker then send back the process rank that this worker is now on
-			MPI_Send(&return_rank, 1, MPI_INT, status.MPI_SOURCE, PP_PID_TAG, MPI_COMM_WORLD);
-		}
+      // If the master was to start a worker then send back the process rank that this worker is now on
+      MPI_Send(&return_rank, 1, MPI_INT, status.MPI_SOURCE, PP_PID_TAG, MPI_COMM_WORLD);
+    }
 
-		return 1;
+    return 1;
   }
   else{
     errorMessage("Worker process called master, this shouldn't happen");
@@ -232,25 +232,25 @@ int checkAllSleep(){
 
 // shut down all processes
 void processPoolFinalise() {
-	if (rank == 0) {
-		if (proc_tracker != NULL){
+  if (rank == 0) {
+    if (proc_tracker != NULL){
       free(proc_tracker);
     }
 
-		for(int i = 1; i < num_of_proc; i++) {
-			
+    for(int i = 1; i < num_of_proc; i++) {
+      
       if(i != proc_to_run_sim){
         if(DEBUG_MODE){
           printf("[Master] Shutting down process %d\n", i);
         }
-			  struct Message msg = createMessage(PP_STOP);
+        struct Message msg = createMessage(PP_STOP);
         msg.task_id = SHUT_PROC;
-			  MPI_Send(&msg, 1, MESSAGE, i, MESSAGE_TAG, MPI_COMM_WORLD);
+        MPI_Send(&msg, 1, MESSAGE, i, MESSAGE_TAG, MPI_COMM_WORLD);
       }
-		}
-	}
-	MPI_Barrier(MPI_COMM_WORLD);
-	MPI_Type_free(&MESSAGE);
+    }
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Type_free(&MESSAGE);
 }
 
 
@@ -258,37 +258,37 @@ void processPoolFinalise() {
  * A worker or the master can instruct to start another worker process
  */
 int startWorkerProcess(int task) {
-	if(rank == 0){
-		proc_request_count++;
+  if(rank == 0){
+    proc_request_count++;
     int return_rank = -1;
 
     do{
-		  return_rank = startAwaitingProcessesIfNeeded(rank, task);
+      return_rank = startAwaitingProcessesIfNeeded(rank, task);
     } while(return_rank == -1);
 
-		return return_rank;
-	} 
+    return return_rank;
+  } 
   else{
-		int worker_rank;
-		struct Message create_message = createMessage(PP_STARTPROCESS);
+    int worker_rank;
+    struct Message create_message = createMessage(PP_STARTPROCESS);
     create_message.task_id = task;
     create_message.parent = rank;
-		MPI_Send(&create_message, 1, MESSAGE, 0, MESSAGE_TAG, MPI_COMM_WORLD);
-		MPI_Recv(&worker_rank, 1, MPI_INT, 0, PP_PID_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Send(&create_message, 1, MESSAGE, 0, MESSAGE_TAG, MPI_COMM_WORLD);
+    MPI_Recv(&worker_rank, 1, MPI_INT, 0, PP_PID_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   
-		return worker_rank;
-	}
+    return worker_rank;
+  }
 }
 
 
 int handleRecievedCommand(){
-	// We have received a command and decide what to do
+  // We have received a command and decide what to do
 
-	if(recv_message.type == PP_WAKE){
-		// If we are told to wake then post a recv for the next command and return true to continue
-		MPI_Irecv(&recv_message, 1, MESSAGE, 0, MESSAGE_TAG, MPI_COMM_WORLD, &command_req);
+  if(recv_message.type == PP_WAKE){
+    // If we are told to wake then post a recv for the next command and return true to continue
+    MPI_Irecv(&recv_message, 1, MESSAGE, 0, MESSAGE_TAG, MPI_COMM_WORLD, &command_req);
 
-		if(DEBUG_MODE){
+    if(DEBUG_MODE){
       if(recv_message.task_id < 0){
         printf("[Worker] Process %d woken to work on pool task: %s\n", rank, pool_task_descriptions[recv_message.task_id]);
       }
@@ -304,28 +304,28 @@ int handleRecievedCommand(){
       return 1;
     }
 
-	} 
+  } 
   else if(recv_message.type == PP_STOP){
-		// Stopping so return zero to denote stop
-		if(DEBUG_MODE){
+    // Stopping so return zero to denote stop
+    if(DEBUG_MODE){
       printf("[Worker] Process %d commanded to stop\n", rank);
     }
-		return 0;
-	} 
+    return 0;
+  } 
   else{
-		errorMessage("Unexpected control command");
-		return 0;
-	}
+    errorMessage("Unexpected control command");
+    return 0;
+  }
 }
 
 
 // called by worker after task completion to set status to sleep
 int workerSleep() {
-	if (rank != 0) {
-		if (recv_message.type==PP_WAKE) {
+  if (rank != 0) {
+    if (recv_message.type==PP_WAKE) {
 
-			// The command was to wake up, it has done the work and now it needs to switch to sleeping mode
-			struct Message msg = createMessage(PP_SLEEPING);
+      // The command was to wake up, it has done the work and now it needs to switch to sleeping mode
+      struct Message msg = createMessage(PP_SLEEPING);
       
       if(DEBUG_MODE){
         printf("[Worker] Process %d waiting for sync after task: %s\n", rank, task_descriptions[recv_message.task_id]);
@@ -343,16 +343,16 @@ int workerSleep() {
       if(command_req != MPI_REQUEST_NULL){
         MPI_Wait(&command_req, MPI_STATUS_IGNORE);
       }
-		}
-		return handleRecievedCommand();
-	} else {
-		errorMessage("Master process called worker poll");
-		return 0;
-	}
+    }
+    return handleRecievedCommand();
+  } else {
+    errorMessage("Master process called worker poll");
+    return 0;
+  }
 }
 
 int getProcessParent() {
-	return recv_message.parent;
+  return recv_message.parent;
 }
 
 
@@ -372,62 +372,62 @@ void sendSyncMessage(int proc_id, int task_id){
  * by that process
  * */
 int startAwaitingProcessesIfNeeded(int parent, int task) {
-	int waiting_proc_rank = -1;
+  int waiting_proc_rank = -1;
 
   // replace with hash check of processes
-	for(int i = 0; i < num_of_proc - 1; i++){
+  for(int i = 0; i < num_of_proc - 1; i++){
     if(!proc_tracker[i]){
 
       proc_tracker[i] = 1;
-			struct Message message = createMessage(PP_WAKE);
+      struct Message message = createMessage(PP_WAKE);
 
-			message.parent = parent;
+      message.parent = parent;
       message.task_id = task;
 
       if(DEBUG_MODE){
         printf("[Master] Starting process %d for rank %d\n", i+1, parent);
       }
 
-	    MPI_Send(&message, 1, MESSAGE, i+1, MESSAGE_TAG, MPI_COMM_WORLD);
-			
+      MPI_Send(&message, 1, MESSAGE, i+1, MESSAGE_TAG, MPI_COMM_WORLD);
+      
       waiting_proc_rank = i+1;	// Will return this rank to the caller
       
-			proc_request_count--;
+      proc_request_count--;
 
-			if(proc_request_count == 0){
+      if(proc_request_count == 0){
         break;
       }
-		}
-		if(i == (num_of_proc - 2)){
+    }
+    if(i == (num_of_proc - 2)){
         return -1;
         // return -1 and try again if no process found
-			}
-		}
+      }
+    }
 
-	return waiting_proc_rank;
+  return waiting_proc_rank;
 }
 
 
 // request the master worker to shutdown all procs
 void shutdownPool() {
-	if(rank != 0) {
-		if(DEBUG_MODE){
+  if(rank != 0) {
+    if(DEBUG_MODE){
       printf("[Worker] Commanding a pool shutdown\n");
     }
 
-		struct Message msg = createMessage(PP_RUNCOMPLETE);
+    struct Message msg = createMessage(PP_RUNCOMPLETE);
     msg.task_id = SHUT_POOL;
-		MPI_Send(&msg, 1, MESSAGE, 0, MESSAGE_TAG, MPI_COMM_WORLD);
-	}
+    MPI_Send(&msg, 1, MESSAGE, 0, MESSAGE_TAG, MPI_COMM_WORLD);
+  }
 }
 
 /**
  * A helper function which will create a command package from the desired command
  */
 struct Message createMessage(enum Message_Type type) {
-	struct Message msg;
-	msg.type = type;
-	return msg;
+  struct Message msg;
+  msg.type = type;
+  return msg;
 }
 
 
@@ -452,7 +452,7 @@ void sendMessage(enum Task type, int count){
     printf("[Worker] Attempting to set proc %d to work on task: %s \n", workerPid, task_descriptions[type]);
   }
 
-	MPI_Send(data, 2, MPI_INT, workerPid, 100, MPI_COMM_WORLD);	
+  MPI_Send(data, 2, MPI_INT, workerPid, 100, MPI_COMM_WORLD);	
 
   if(DEBUG_MODE){
     printf("[Worker] Proc %d set to work on task: %s \n", workerPid, task_descriptions[type]);
@@ -465,14 +465,14 @@ void sendMessage(enum Task type, int count){
 // utilize global data but other than those they do not care for synchronization in the 
 // sense of the global simulation execution.
 void workerCode() {	
-	int workerStatus = 1, data[2];
+  int workerStatus = 1, data[2];
 
-	while (workerStatus) {
+  while (workerStatus) {
     // figure out who is waking up this process, this lets us know who to listen to for
     // a task command.
-		int parentId = getProcessParent();
+    int parentId = getProcessParent();
  
-		MPI_Recv(data, 2, MPI_INT, parentId, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(data, 2, MPI_INT, parentId, 100, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     if(DEBUG_MODE){
       printf(
@@ -489,9 +489,9 @@ void workerCode() {
     }
 
     // try to go to sleep after finishing the task.
-		workerStatus=workerSleep();
+    workerStatus=workerSleep();
     
-	}
+  }
 }
 
 
